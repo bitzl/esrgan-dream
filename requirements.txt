@@ -1,0 +1,4 @@
+realesrgan
+typer
+rich
+tqdm
