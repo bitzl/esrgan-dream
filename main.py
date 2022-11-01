@@ -94,5 +94,9 @@ def experiments(
     n = len(experiments)
     typer.secho(f"Finished {n} experiments in {stop - start:.2f} seconds ({(stop - start)/n:.2f} s/experiment))", fg=typer.colors.GREEN)
 
+@app.command()
+def from_image():
+    pass
+
 if __name__ == "__main__":
     app()
