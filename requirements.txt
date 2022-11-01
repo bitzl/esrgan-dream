@@ -2,3 +2,4 @@ realesrgan
 typer
 rich
 tqdm
+base32_lib

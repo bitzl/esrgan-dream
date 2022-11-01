@@ -1,5 +1,5 @@
 __pycache__
-out
+out*
 weights/
 .venv/
 models/
