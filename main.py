@@ -6,9 +6,9 @@ from tqdm import trange
 from pathlib import Path
 from rich.progress import Progress
 import typer
-from esrgan_test import ColorMode
+from esrgan_dream import ColorMode
 
-from esrgan_test.dream import Dream
+from esrgan_dream.dream import Dream
 
 MAX_SEED = 2**32 - 1
 

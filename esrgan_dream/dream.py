@@ -4,11 +4,10 @@ from basicsr.archs.rrdbnet_arch import RRDBNet
 import numpy as np
 from realesrgan import RealESRGANer
 import torch
-import base32_lib
 
 import cv2
 
-from esrgan_test import ColorMode, IDGenerator, experiment_id
+from esrgan_dream import ColorMode, IDGenerator, experiment_id
 import yaml
 
 ID_GENERATOR = IDGenerator()

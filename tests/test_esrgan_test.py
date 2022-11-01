@@ -1,4 +1,4 @@
-from esrgan_test import __version__
+from esrgan_dream import __version__
 
 
 def test_version():
