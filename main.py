@@ -71,6 +71,7 @@ def experiments(
             model_path,
             blur,
             color_offset,
+            comment=comment,
         )
         for numpy_seed, torch_seed in zip(numpy_seeds, torch_seeds)
     ]
