@@ -12,6 +12,8 @@ import cv2
 from esrgan_dream import ColorMode, IDGenerator, experiment_id
 import yaml
 
+from esrgan_dream.source import BlurryNoiseGenerator
+
 ID_GENERATOR = IDGenerator()
 
 def create_upsampler(model_path: str, tile: str):
@@ -39,30 +41,30 @@ def create_upsampler(model_path: str, tile: str):
 class Dream:
     def __init__(
         self,
-        numpy_seed: int,
+        # numpy_seed: int,
         torch_seed: int,
-        initial_width: int,
-        initial_height: int,
+        # initial_width: int,
+        # initial_height: int,
         tile: int,
-        color_mode: ColorMode,
+        # color_mode: ColorMode,
         model_path: str,
-        blur: int,
-        color_offset: int,
-        comment: str = None
+        # blur: int,
+        # color_offset: int,
+        bng: BlurryNoiseGenerator,
+        comment: str = None,
+        # input_tile = None,
     ):
         self.id = ID_GENERATOR.next()
-        self.initial_width = initial_width
-        self.initial_height = initial_height
+        # self.initial_width = initial_width
+        # self.initial_height = initial_height
         self.tile = tile
-        self.color_mode = color_mode
-        self.blur = blur
+        # self.color_mode = color_mode
+        # self.blur = blur
         self.model_path = model_path
-        self.color_offset = color_offset
+        # self.color_offset = color_offset
         self.comment = comment
-
-        if numpy_seed is None:
-            numpy_seed = random.randint(0, 2 ** 32 - 1)
-        self.numpy_seed = numpy_seed
+        # self.input_tile = input_tile
+        self.bng: BlurryNoiseGenerator = bng
 
         if torch_seed is not None:
             torch.manual_seed(torch_seed)
@@ -73,7 +75,7 @@ class Dream:
     def dream(self, repeat_upscale, out: str, progress_callback: lambda: None):
         # Setup model. Don't do this in __init__ because this uses GPU memory.
         upsampler = create_upsampler(self.model_path, self.tile)
-        img = self.blurry_noise()
+        img = self.bng()
         for iteration in range(
             repeat_upscale + 1
         ):  # add one because in the first iteration we just save the original image
@@ -84,39 +86,10 @@ class Dream:
             )
             progress_callback()
 
-    def blurry_noise(self):
-        rng = np.random.default_rng(self.numpy_seed)
-        max_value = min(255 - self.color_offset, 255) # allow negative offset to make colors darker
-        width, height = self.initial_width, self.initial_height
-        match self.color_mode:
-            case ColorMode.color:
-                print("Generate grayscale image")
-                img = rng.integers(max_value, size=(height, width, 3), dtype=np.uint8) + self.color_offset
-                if self.blur > 0:
-                    img = cv2.blur(img, (self.blur, self.blur))
-            case ColorMode.grayscale:
-                print("Generate grayscale image")
-                img = rng.integers(max_value, size=(height, width, 1), dtype=np.uint8) + self.color_offset
-                if self.blur > 0:
-                    img = cv2.blur(img, (self.blur, self.blur))
-            case ColorMode.black_and_white:
-                print("Generate black and white image")
-                img = rng.integers(255, size=(height, width, 1), dtype=np.uint8)
-                img[img < 128] = 0
-                img[img >= 128] = 255
-        return img
-
     def dumps(self) -> str:
         state = {
-            "initial": {
-                "width": self.initial_width,
-                "height": self.initial_height,
-                "color_mode": repr(self.color_mode),
-                "blur": self.blur,
-                "color_offset": self.color_offset,
-            },
+            "initial": self.bng.state(),
             "seeds": {
-                "numpy": self.numpy_seed,
                 "torch": self.torch_seed,
             },
             "tile": self.tile,
@@ -148,11 +121,6 @@ class Dream:
             color_offset=initial.get("color_offset", 0),
             comment=doc.get("comment", None)
         )
-
-# @dataclass
-# class Seeds:
-#     numpy: int
-#     torch: int
 
 class DreamFromImage:
     def __init__(

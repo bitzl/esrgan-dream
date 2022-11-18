@@ -10,6 +10,7 @@ from esrgan_dream import ColorMode
 from esrgan_dream import dream
 
 from esrgan_dream.dream import Dream, DreamFromImage
+from esrgan_dream.source import BlurType, BlurryNoiseGenerator
 
 MAX_SEED = 2**32 - 1
 
@@ -48,12 +49,16 @@ def experiments(
     ),
     tile: int = typer.Option(512, help="Size for image tiles (0: no tiling)"),
     blur: int = typer.Option(3, help="Blur kernel size"),
+    blur_type: BlurType = typer.Option(BlurType.mean, help="Blur type"),
     color_offset: int = typer.Option(
         0, help="Offset to make the image brighter or darker"
     ),
     initial_width: int = typer.Option(16, help="Initial width of the image"),
     initial_height: int = typer.Option(16, help="Initial height of the image"),
     comment: str = typer.Option(None, help="Comment to add to the output folder name"),
+    input_tile: int = typer.Option(
+        None, help="Create random input by repeating tiles of this size before blurring"
+    ),
 ):
     out.mkdir(exist_ok=True, parents=True)
     numpy_seeds = [random.randint(0, MAX_SEED) for _ in range(experiments)]
@@ -62,16 +67,20 @@ def experiments(
     # setup experiments
     experiments = [
         Dream(
-            numpy_seed,
             torch_seed,
-            initial_width,
-            initial_height,
             tile,
-            color_mode,
             model_path,
-            blur,
-            color_offset,
             comment=comment,
+            bng=BlurryNoiseGenerator(
+                initial_width,
+                initial_height,
+                blur_type,
+                color_mode,
+                numpy_seed,
+                blur,
+                color_offset=color_offset,
+                tile_size=input_tile,
+            ),
         )
         for numpy_seed, torch_seed in zip(numpy_seeds, torch_seeds)
     ]
@@ -132,13 +141,18 @@ def from_image(
                 total=iterations,
             )
 
-        overall_progress = progress.add_task("[medium_purple1]Total progress", total=len(dreams) * iterations)
+        overall_progress = progress.add_task(
+            "[medium_purple1]Total progress", total=len(dreams) * iterations
+        )
         tasks = [(dream, tracking_task(dream)) for dream in dreams]
         for dream, task in tasks:
+
             def update():
                 progress.advance(overall_progress)
                 progress.advance(task)
+
             dream.dream(iterations, out, update)
+
 
 if __name__ == "__main__":
     app()
