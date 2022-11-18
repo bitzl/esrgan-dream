@@ -48,6 +48,7 @@ class Dream:
         model_path: str,
         blur: int,
         color_offset: int,
+        comment: str = None
     ):
         self.id = ID_GENERATOR.next()
         self.initial_width = initial_width
@@ -57,6 +58,7 @@ class Dream:
         self.blur = blur
         self.model_path = model_path
         self.color_offset = color_offset
+        self.comment = comment
 
         if numpy_seed is None:
             numpy_seed = random.randint(0, 2 ** 32 - 1)
@@ -120,6 +122,8 @@ class Dream:
             "tile": self.tile,
             "model_path": self.model_path
         }
+        if self.comment is not None:
+            state["comment"] = self.comment
         return yaml.dump(state)
 
     def dump(self, fp) -> str:
@@ -142,6 +146,7 @@ class Dream:
             model_path=doc["model_path"],
             blur=initial["blur"],
             color_offset=initial.get("color_offset", 0),
+            comment=doc.get("comment", None)
         )
 
 # @dataclass

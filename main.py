@@ -53,6 +53,7 @@ def experiments(
     ),
     initial_width: int = typer.Option(16, help="Initial width of the image"),
     initial_height: int = typer.Option(16, help="Initial height of the image"),
+    comment: str = typer.Option(None, help="Comment to add to the output folder name"),
 ):
     out.mkdir(exist_ok=True, parents=True)
     numpy_seeds = [random.randint(0, MAX_SEED) for _ in range(experiments)]
