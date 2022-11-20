@@ -5,6 +5,8 @@ from enum import Enum
 import base32_lib
 
 
+DEFAULT_MODEL = ""
+
 class ColorMode(str, Enum):
     color = "color"
     grayscale = "gray"

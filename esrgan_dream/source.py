@@ -43,9 +43,9 @@ class BlurryNoiseGenerator:
         max_value = min(
             255 - self.color_offset, 255
         )  # allow negative offset to make colors darker
+        print(f"Generate {self.color_mode} image")
         match self.color_mode:
             case ColorMode.color:
-                print("Generate grayscale image")
                 img = (
                     rng.integers(
                         max_value, size=(self.height, self.width, 3), dtype=np.uint8
@@ -55,7 +55,6 @@ class BlurryNoiseGenerator:
                 img = self._make_tiled(img)
                 img = self._blur(img)
             case ColorMode.grayscale:
-                print("Generate grayscale image")
                 img = (
                     rng.integers(
                         max_value, size=(self.height, self.width, 1), dtype=np.uint8
@@ -65,7 +64,6 @@ class BlurryNoiseGenerator:
                 img = self._make_tiled(img)
                 img = self._blur(img)
             case ColorMode.black_and_white:
-                print("Generate black and white image")
                 img = rng.integers(
                     255, size=(self.height, self.width, 1), dtype=np.uint8
                 )
@@ -79,7 +77,7 @@ class BlurryNoiseGenerator:
 
     def _blur(self, image):
         if self.blur_kernel_size == 0:
-            return image
+            return np.squeeze(image) # make sure the shape is the same as if blurring was applied
         if self.blur_type == BlurType.mean:
             return cv2.blur(image, (self.blur_kernel_size, self.blur_kernel_size))
         elif self.blur_type == BlurType.gaussian:
