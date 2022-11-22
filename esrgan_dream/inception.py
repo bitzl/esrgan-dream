@@ -82,7 +82,7 @@ class Inception:
                 similarity = 0
             self.structural_similarity.append(similarity)
             cv2.imwrite(
-                f"{out}/{self.id}_{iteration:02d}.png", img
+                f"{out}/{self.id}_{iteration:03d}.png", img
             )
             with (out / f"{self.id}.yml").open("w") as fp:
                 self.dump(fp)
