@@ -5,3 +5,5 @@ tqdm
 base32_lib
 pandas
 matplotlib
+git+https://github.com/pvigier/perlin-numpy
+streamlit

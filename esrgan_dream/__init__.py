@@ -12,6 +12,9 @@ class ColorMode(str, Enum):
     grayscale = "gray"
     black_and_white = "b/w"
 
+class NoiseType(str, Enum):
+    uniform = "uniform"
+    perlin = "perlin"
 
 def experiment_id() -> str:
     """

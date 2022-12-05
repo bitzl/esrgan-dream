@@ -7,12 +7,12 @@ from tqdm import trange
 from pathlib import Path
 from rich.progress import Progress
 import typer
-from esrgan_dream import ColorMode
+from esrgan_dream import ColorMode, NoiseType
 from esrgan_dream import dream
 
 from esrgan_dream.dream import Dream, DreamFromImage
 from esrgan_dream.inception import Inception
-from esrgan_dream.source import BlurType, BlurryNoiseGenerator
+from esrgan_dream.source import BlurType, BlurryNoiseGenerator, FractalNoiseGenerator
 
 MAX_SEED = 2**32 - 1
 
@@ -52,6 +52,7 @@ def experiments(
     tile: int = typer.Option(512, help="Size for image tiles (0: no tiling)"),
     blur: int = typer.Option(3, help="Blur kernel size"),
     blur_type: BlurType = typer.Option(BlurType.mean, help="Blur type"),
+    noise_type: NoiseType = typer.Option(NoiseType.uniform, help="Noise type"),
     color_offset: int = typer.Option(
         0, help="Offset to make the image brighter or darker"
     ),
@@ -78,6 +79,7 @@ def experiments(
                 initial_height,
                 blur_type,
                 color_mode,
+                noise_type,
                 numpy_seed,
                 blur,
                 color_offset=color_offset,
@@ -109,6 +111,125 @@ def experiments(
     n = len(experiments)
     typer.secho(
         f"Finished {n} experiments in {stop - start:.2f} seconds ({(stop - start)/n:.2f} s/experiment))",
+        fg=typer.colors.GREEN,
+    )
+
+
+@app.command()
+def fractal_noise(
+    model_path: str = typer.Option(
+        "weights/RealESRGAN_x4plus.pth", help="Path to the model file"
+    ),
+    out: Path = typer.Option(Path("out"), help="Path to the output folder"),
+    iterations: int = typer.Option(3, help="Number of times to upscale the image"),
+    experiments: int = typer.Option(1, help="Number of times to run the experiment"),
+    tileable: bool = typer.Option(False, help="Whether the image is tilable"),
+    comment: str = typer.Option(None, help="Comment to add to the output folder name"),
+    tile: int = typer.Option(512, help="Size for image tiles (0: no tiling)"),
+):
+    out.mkdir(exist_ok=True, parents=True)
+    numpy_seeds = [random.randint(0, MAX_SEED) for _ in range(experiments)]
+    torch_seeds = [random.randint(0, MAX_SEED) for _ in range(experiments)]
+
+    # setup experiments
+    experiments = [
+        Dream(
+            torch_seed,
+            tile,
+            model_path,
+            comment=comment,
+            bng=FractalNoiseGenerator(
+                numpy_seed,
+                tileable=tileable,
+            ),
+        )
+        for numpy_seed, torch_seed in zip(numpy_seeds, torch_seeds)
+    ]
+
+    start = time.time()
+    with Progress() as progress:
+        # setup progress tracking
+        experiment_progress = [
+            (
+                experiment,
+                progress.add_task(
+                    f"Experiment {i} ({experiment.id})",
+                    total=iterations,
+                ),
+            )
+            for i, experiment in enumerate(experiments)
+        ]
+        # perform experiments
+        for experiment, task in experiment_progress:
+            with open(f"{out}/{experiment.id}.yml", "w") as fp:
+                experiment.dump(fp)
+            experiment.dream(iterations, out, lambda: progress.advance(task))
+    stop = time.time()
+    n = len(experiments)
+    typer.secho(
+        f"Finished {n} experiments in {stop - start:.2f} seconds ({(stop - start)/n:.2f} s/experiment))",
+        fg=typer.colors.GREEN,
+    )
+
+
+@app.command()
+def fractal_file(
+    config: Path = typer.Argument(None, help="Path to the Excel file "),
+    model_path: str = typer.Option(
+        "weights/RealESRGAN_x4plus.pth", help="Path to the model file"
+    ),
+    out: Path = typer.Option(Path("out"), help="Path to the output folder"),
+    tile: int = typer.Option(512, help="Size for image tiles (0: no tiling)"),
+):
+    import pandas as pd
+
+    df = pd.read_excel(config)
+
+    out.mkdir(exist_ok=True, parents=True)
+    total_experiments = df.experiments.sum()
+    numpy_seeds = [random.randint(0, MAX_SEED) for _ in range(total_experiments)]
+    torch_seeds = [random.randint(0, MAX_SEED) for _ in range(total_experiments)]
+
+    expanded_configs = []
+    for _, row in df.iterrows():
+        for _ in range(row.experiments):
+            expanded_configs.append(row)
+
+    # setup experiments
+    experiments = [
+        (
+            Dream(
+                torch_seed,
+                tile,
+                model_path,
+                bng=FractalNoiseGenerator(
+                    numpy_seed,
+                    tileable=row.tileable,
+                    height=row.height,
+                    width=row.width,
+                    res=(row.res, row.res),
+                    depth=row.depth,
+                    blur=row.blur,
+                ),
+            ),
+            row.iterations,
+        )
+        for numpy_seed, torch_seed, row in zip(
+            numpy_seeds, torch_seeds, expanded_configs
+        )
+    ]
+
+    start = time.time()
+    with Progress() as progress:
+        task = progress.add_task("Total", total=total_experiments)
+        # perform experiments
+        for experiment, iterations in experiments:
+            with open(f"{out}/{experiment.id}.yml", "w") as fp:
+                experiment.dump(fp)
+            experiment.dream(iterations, out, lambda: progress.advance(task))
+    stop = time.time()
+    typer.secho(
+        f"Finished {total_experiments} experiments in {stop - start:.2f} seconds ({(stop - start)/total_experiments:.2f} s/experiment))",
         fg=typer.colors.GREEN,
     )
 
@@ -176,7 +297,6 @@ def inception(
     color_offset: int = typer.Option(
         0, help="Offset to make the image brighter or darker"
     ),
-
     comment: str = typer.Option(None, help="Comment to add to the output folder name"),
     input_tile: int = typer.Option(
         None, help="Create random input by repeating tiles of this size before blurring"
@@ -221,6 +341,7 @@ def generate_seeds(experiments: List) -> Tuple[List[int], List[int]]:
     torch_seeds = [random.randint(0, MAX_SEED) for _ in range(experiments)]
     return zip(numpy_seeds, torch_seeds)
 
+
 def setup_progress(progress, experiments, iterations):
     return [
         (
@@ -234,15 +355,17 @@ def setup_progress(progress, experiments, iterations):
     ]
 
 
-class ExperimentTimer():
+class ExperimentTimer:
     def __init__(self) -> None:
         self.start = time.time()
+
     def stopAndPrint(self, experiments: int):
         stop = time.time()
         typer.secho(
             f"Finished {experiments} experiments in {stop - self.start:.2f} seconds ({(stop - self.start)/experiments:.2f} s/experiment))",
             fg=typer.colors.GREEN,
         )
+
 
 if __name__ == "__main__":
     app()

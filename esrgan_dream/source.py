@@ -5,8 +5,8 @@ import cv2
 
 import numpy as np
 
-from esrgan_dream import ColorMode
-
+from esrgan_dream import ColorMode, NoiseType
+from perlin_numpy import generate_fractal_noise_2d
 
 class BlurType(str, Enum):
     mean = "mean"
@@ -105,4 +105,50 @@ class BlurryNoiseGenerator:
             "color_offset": self.color_offset,
             "seed": self.random_seed,
             "tile_size": self.tile_size,
+        }
+
+
+class FractalNoiseGenerator:
+    def __init__(
+        self,
+        random_seed: float =None,
+        tileable: bool=None,
+        height = 16,
+        width = 16,
+        res = (2, 2),
+        depth = 4,
+        blur = 3,
+    ):
+        self.tileable = tileable
+        if random_seed is None:
+            random_seed = random.randint(0, 2**32 - 1)
+        self.random_seed = random_seed
+        self.height = height
+        self.width = width
+        self.res = res
+        self.depth = depth
+        self.blur = blur
+        # self.height = 64
+        # self.width = 64
+        # self.res = (4, 4)
+        # self.depth = 5
+        # self.blur = 5
+
+    def __call__(self):
+        np.random.seed(self.random_seed)
+        img = generate_fractal_noise_2d((self.height, self.width), self.res, self.depth, tileable=(self.tileable, self.tileable))
+        img = (img * 255).astype(np.uint8)
+        if self.blur > 0:
+            img = cv2.blur(img, (self.blur, self.blur))
+        return img
+
+    def state(self):
+        return {
+            "width": self.width,
+            "height":self.height,
+            "depth": self.depth,
+            "res": list(self.res),
+            "blur": self.blur,
+            "seed": self.random_seed,
+            "tileable": self.tileable,
         }
